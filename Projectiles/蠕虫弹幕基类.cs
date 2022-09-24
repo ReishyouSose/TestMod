@@ -58,7 +58,9 @@ namespace TestMod.Projectiles
             {
                 if (!Main.projectile[list[i]].active)
                 {
-                    list.RemoveAt(i--);
+                    list.RemoveAt(i);
+                    data.RemoveAt(i);
+                    i--;
                 }
             }
             data[0] = (Projectile.Center, Projectile.rotation);
@@ -71,13 +73,15 @@ namespace TestMod.Projectiles
                     SetProjPosAndRot(list[i], data[i]);
                 }
             }
+            SetProjPosAndRot((int)Projectile.ai[1], data[list.Count]);
         }
         public override void Kill(int timeLeft)
         {
-            /*for (int i = 0; i < list.Count; i++)
+            for (int i = 0; i < list.Count; i++)
             {
                 Main.projectile[list[i]].Kill();
-            }*/
+            }
+            Main.projectile[(int)Projectile.ai[1]].Kill();
         }
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {

@@ -1,4 +1,5 @@
 ﻿global using Microsoft.Xna.Framework;
+global using ReLogic.Content;
 global using System;
 global using Terraria;
 global using Terraria.DataStructures;
@@ -8,7 +9,6 @@ global using Terraria.ModLoader;
 global using TestMod.Projectiles;
 global using static TestMod.Helper;
 global using static TestMod.Projectiles.MultipleSectionsMinion;
-global using ReLogic.Content;
 
 namespace TestMod
 {
@@ -149,20 +149,24 @@ namespace TestMod
             }
             if (logic == -1)
             {
-                Projectile L = SpawnMinion(player, source, Logic, damage, kb,SummonBuffType);
-                if (L.ModProjectile is T Proj)
+                int L = SpawnMinion(player, source, Logic, damage, kb, SummonBuffType);
+                if (Main.projectile[L].ModProjectile is T Proj)
                 {
                     Proj.itemDamage = Itemdamage;
                     var list = Proj.list;
                     var data = Proj.data;
-                    for (int i = 0; i < amount+2; i++) data.Add(unit);
+                    for (int i = 0; i < amount + 2; i++) data.Add((Main.MouseWorld + Vector2.One * (i + 1), 0));
 
-                    list.Add(SpawnMinion(player, source, Head, 0, 0).whoAmI);
+                    int p = SpawnMinion(player, source, Head, 0, 0);
+                    list.Add(p);
+                    Main.NewText(p);
                     for (int i = 0; i < amount; i++)
                     {
-                        list.Add(SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount).whoAmI);
+                        int proj = SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount);
+                        list.Add(proj);
+                        Main.NewText(proj);
                     }
-                    L.ai[1] = SpawnMinion(player, source, Tail, 0, 0).whoAmI;
+                    Main.projectile[L].ai[1] = SpawnMinion(player, source, Tail, 0, 0);
                 }
             }
             else
@@ -172,7 +176,9 @@ namespace TestMod
                     for (int i = 0; i < amount; i++)
                     {
                         Proj.data.Add((Main.MouseWorld + Vector2.One * i, 0));
-                        Proj.list.Add(SpawnMinion(player, source, Body, damage, kb, i, 0, 1f / amount).whoAmI);
+                        int proj = SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount);
+                        Proj.list.Add(proj);
+                        Main.NewText(proj);
                     }
                 }
             }

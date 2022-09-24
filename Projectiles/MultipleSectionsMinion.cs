@@ -8,18 +8,15 @@ namespace TestMod.Projectiles
 {
     public abstract class MultipleSectionsMinion : ModProjectile
     {
-        public static Projectile SpawnMinion(Player player, IEntitySource source, int type, int damage, float kb, float ai0 = 0, float ai1 = 0, float minionSlots = 0)
+        public static int SpawnMinion(Player player, IEntitySource source, int type, int damage, float kb, float ai0 = 0, float ai1 = 0, float minionSlots = 0)
         {
-            int p = player.SpawnMinionOnCursor(source, player.whoAmI, type, damage, kb);
-            Projectile proj = Main.projectile[p];
-            proj.ai[0] = ai0;
-            proj.ai[1] = ai1;
-            proj.minionSlots = minionSlots;
-            proj.netUpdate = true;// 召唤时同步数据
+            int proj = Projectile.NewProjectile(source, Main.MouseWorld, Vector2.Zero, type, damage, kb, player.whoAmI, ai0, ai1);
+            Main.projectile[proj].minionSlots = minionSlots;
+            Main.projectile[proj].netUpdate = true;// 召唤时同步数据
             return proj;
         }
         //用于召唤的设置
-        public static void SummonSet(Player player, IEntitySource source, int damage, float knockback, int SummonNum, int SummonBuffType, int Logic, int Head, int Body, int Tail)
+       /* public static void SummonSet(Player player, IEntitySource source, int damage, float knockback, int SummonNum, int SummonBuffType, int Logic, int Head, int Body, int Tail)
         {
             int head = -1;
             int tail = -1;
@@ -46,9 +43,9 @@ namespace TestMod.Projectiles
             {
                 int count = 0;// 用于传入体节身份
                 // 逻辑弹幕的ai[1]是对应的召唤物buff
-                Projectile logic = SpawnMinion(player, source, Logic, damage, knockback, 0, SummonBuffType);
-                logic.hide = true;// 逻辑弹幕隐形
-                logic.friendly = false;// 逻辑弹幕不造成伤害
+                int logic = SpawnMinion(player, source, Logic, damage, knockback, 0, SummonBuffType);
+               Main.projectile[ logic].hide = true;// 逻辑弹幕隐形
+                Main.projectile[logic].friendly = false;// 逻辑弹幕不造成伤害
                 SpawnMinion(player, source, Head, damage, knockback, count);// 生成头体节，头体节的ai[0]是身份，此时是0
                 for (int i = 0; i < SummonNum; i++)// 根据传入的单次召唤数量来召唤身体
                 {
@@ -87,7 +84,7 @@ namespace TestMod.Projectiles
             }
         }
         // 之后在继承了的物品的重写Shoot函数中调用这个方法即可
-
+       */
         //一个一个生草机翻的 Multiple多 Sections节 Minion召唤物 aaaa
         public override void SetDefaults()
         {

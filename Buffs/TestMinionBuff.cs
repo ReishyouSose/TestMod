@@ -1,4 +1,5 @@
 ﻿using TestMod.ModPlayers;
+using static TestMod.Projectiles.蠕虫弹幕基类;
 
 namespace TestMod.Buffs
 {
@@ -19,7 +20,7 @@ namespace TestMod.Buffs
             // 获取ModPlayer实例
             MinionPlayer modPlayer = player.GetModPlayer<MinionPlayer>();
             // 这是玩家某种弹幕的计数
-            if (player.ownedProjectileCounts[ModContent.ProjectileType<TestMinion.身>()] > 0)
+            if (player.ownedProjectileCounts[ModContent.ProjectileType<逻辑>()] > 0)
             {
                 modPlayer.TestMinion = true;
             }

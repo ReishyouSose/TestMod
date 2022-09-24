@@ -1,7 +1,7 @@
 ﻿using TestMod.ModPlayers;
 
 namespace TestMod.Projectiles
-{
+{/*
     public abstract class TestMinion : MultipleSectionsMinion
     {
         // 兴许需要重写一下贴图路径
@@ -37,5 +37,5 @@ namespace TestMod.Projectiles
             DrawSet(Main.spriteBatch, 2, lightColor, 0);
             return false;
         }
-    }
+    }*/
 }

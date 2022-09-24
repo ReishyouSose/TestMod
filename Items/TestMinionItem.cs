@@ -1,11 +1,7 @@
-﻿using Terraria.DataStructures;
-using TestMod.Buffs;
-using static TestMod.Projectiles.TestMinion;
-
-namespace TestMod.Items
+﻿namespace TestMod.Items
 {
-    public class TestMultipleSectionsMinionItem : MultipleSectionsMinionItem
-    {
+    public abstract class TestMultipleSectionsMinionItem : ModItem
+    {/*
         public override string Texture => "TestMod/Pictures/Items/召唤杖";
         public override void SetStaticDefaults()
         {
@@ -38,6 +34,6 @@ namespace TestMod.Items
             SummonSet(player, source, damage, knockback, 2, ModContent.BuffType<TestMinionBuff>(), ModContent.ProjectileType<LogicProj>(), ModContent.ProjectileType<头>(),
                 ModContent.ProjectileType<身>(), ModContent.ProjectileType<尾>());
             return false;
-        }
+        }*/
     }
 }

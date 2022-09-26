@@ -34,17 +34,6 @@ namespace TestMod.Items
         }
         public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
-            /*SummonSet<逻辑>(player, source, damage, knockback, 2, ModContent.BuffType<TestMinionBuff>(), Item.damage, ModContent.ProjectileType<逻辑>(),
-                 ModContent.ProjectileType<头>(), ModContent.ProjectileType<身>(), ModContent.ProjectileType<尾>());*/
-            /*Projectile p = SpawnMinion(player, source, type, damage, knockback);
-            if (p.ModProjectile is 蠕虫弹幕基类 proj)
-            {
-                for (int i = 0; i < 4; i++)
-                {
-                    proj.list.Add(1);
-                    proj.data.Add((Main.MouseWorld + Vector2.One * i, 0));
-                }
-            }*/
             SummonSet<逻辑>(player, source, damage, knockback, 2, ModContent.BuffType<TestMinionBuff>(), Item.damage, ModContent.ProjectileType<逻辑>(),
                  ModContent.ProjectileType<头>(), ModContent.ProjectileType<身>(), ModContent.ProjectileType<尾>());
             return false;

@@ -10,7 +10,9 @@ namespace TestMod.Projectiles
     {
         public static int SpawnMinion(Player player, IEntitySource source, int type, int damage, float kb, float ai0 = 0, float ai1 = 0, float minionSlots = 0)
         {
-            int proj = Projectile.NewProjectile(source, Main.MouseWorld, Vector2.Zero, type, damage, kb, player.whoAmI, ai0, ai1);
+            int proj = player.SpawnMinionOnCursor(source, player.whoAmI, type, damage, kb);
+            Main.projectile[proj].ai[0] = ai0;
+            Main.projectile[proj].ai[1] = ai1;
             Main.projectile[proj].minionSlots = minionSlots;
             Main.projectile[proj].netUpdate = true;// 召唤时同步数据
             return proj;

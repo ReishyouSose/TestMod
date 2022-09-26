@@ -9,6 +9,8 @@ global using Terraria.ModLoader;
 global using TestMod.Projectiles;
 global using static TestMod.Helper;
 global using static TestMod.Projectiles.MultipleSectionsMinion;
+global using Microsoft.Xna.Framework.Graphics;
+global using Terraria.GameContent;
 
 namespace TestMod
 {
@@ -67,17 +69,18 @@ namespace TestMod
                 NPC npc = Main.npc[TarWho];
                 Vector2 tarVel = npc.Center - Projectile.Center;
                 float speed = 0.4f;// 追击速度系数
-                                   // 越近越快
-                if (tarVel.Length() < 600f)
+                float dis = tarVel.Length();
+                // 越近越快
+                if (dis < 600f)
                 {
                     speed = 0.6f;
                 }
-                if (tarVel.Length() < 300f)
+                if (dis < 300f)
                 {
                     speed = 0.8f;
                 }
-                // 距离比碰撞箱的0.75倍大？
-                if (tarVel.Length() > npc.Size.Length() * 0.75f)
+                // 到npc的距离比npc的碰撞箱大小的0.75倍大，也就是说离NPC还比较远
+                if (dis > npc.Size.Length() * 0.75f || Projectile.velocity == Vector2.Zero)
                 {
                     Projectile.velocity += Vector2.Normalize(tarVel) * speed * 1.5f;
                     //如果追踪方向和速度方向夹角过大，减速
@@ -136,7 +139,6 @@ namespace TestMod
         public static void SummonSet<T>(Player player, IEntitySource source, int damage, float kb,
             int amount, int SummonBuffType, int Itemdamage, int Logic, int Head, int Body, int Tail) where T : 蠕虫弹幕基类
         {
-            (Vector2, float) unit = (Main.MouseWorld, 0);
             int logic = -1;
             foreach (Projectile h in Main.projectile)
             {
@@ -145,7 +147,6 @@ namespace TestMod
                     logic = h.whoAmI;
                     break;
                 }
-                if (logic != 1) break;
             }
             if (logic == -1)
             {
@@ -153,18 +154,16 @@ namespace TestMod
                 if (Main.projectile[L].ModProjectile is T Proj)
                 {
                     Proj.itemDamage = Itemdamage;
-                    var list = Proj.list;
+                    var proj = Proj.proj;
                     var data = Proj.data;
                     for (int i = 0; i < amount + 2; i++) data.Add((Main.MouseWorld + Vector2.One * (i + 1), 0));
 
                     int p = SpawnMinion(player, source, Head, 0, 0);
-                    list.Add(p);
-                    Main.NewText(p);
+                    proj.Add(p);
                     for (int i = 0; i < amount; i++)
                     {
-                        int proj = SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount);
-                        list.Add(proj);
-                        Main.NewText(proj);
+                        int body = SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount);
+                        proj.Add(body);
                     }
                     Main.projectile[L].ai[1] = SpawnMinion(player, source, Tail, 0, 0);
                 }
@@ -177,34 +176,54 @@ namespace TestMod
                     {
                         Proj.data.Add((Main.MouseWorld + Vector2.One * i, 0));
                         int proj = SpawnMinion(player, source, Body, 0, 0, i, 0, 1f / amount);
-                        Proj.list.Add(proj);
-                        Main.NewText(proj);
+                        Proj.proj.Add(proj);
                     }
                 }
             }
         }
         public static (Vector2 pos, float rot) CalculatePosAndRot((Vector2 pos, float rot) tar, (Vector2 pos, float rot) me, float dis)
         {
-            Vector2 chasepos = tar.pos - me.pos;
-            if (chasepos == Vector2.Zero) return (chasepos + Vector2.One, 0);
+            Vector2 chaseDir = Vector2.Normalize(tar.pos - me.pos);
+            /*if (chaseDir == Vector2.Zero)
+            {
+                return (chaseDir + Vector2.One, 0);
+            }*/
             float chaserot = tar.rot - me.rot;
             if (chaserot != 0)
             {
-                chasepos = Vector2.Normalize(chasepos).RotatedBy(MathHelper.WrapAngle(chaserot) * 0.1f);
-
+                chaseDir = chaseDir.RotatedBy(MathHelper.WrapAngle(chaserot) * 0.1f);
             }
-            Vector2 center = tar.pos - chasepos * dis;
-            return (center, chasepos.ToRotation());
+            Vector2 center = tar.pos - chaseDir * dis;
+
+            return (center, chaseDir.ToRotation());
         }
-        public static void SetProjPosAndRot(int whoami, (Vector2 pos, float rot) data)
+        public static void SetProjSection(int whoami, (Vector2 pos, float rot) data, double damage = 0)
         {
             Projectile p = Main.projectile[whoami];
             p.Center = data.pos;
             p.rotation = data.rot;
+            p.timeLeft = 2;
+            p.originalDamage = p.damage = (int)damage;
         }
         public static Rectangle RecCenter(Vector2 center, int Size)
         {
             return new Rectangle((int)center.X - Size / 2, (int)center.Y - Size / 2, Size, Size);
+        }
+        public static void DrawSet(SpriteBatch spb, Projectile proj, int Body, int amount, Color lightColor, float rot)
+        {
+            Texture2D tex = TextureAssets.Projectile[proj.type].Value;
+            bool body = false;
+            Rectangle rec = new();
+            if (proj.type == Body)// 给身体体节做特判
+            {
+                body = true;
+                // 根据身体的ai[0]来裁剪贴图，这里是纵向裁剪，有需要你们可以写个横向重载
+                rec = new Rectangle(0, (int)proj.ai[0] * tex.Height / amount, tex.Width, tex.Height / amount);
+            }
+            spb.Draw(tex, proj.Center - Main.screenPosition, !body ? null : rec, lightColor,
+                proj.rotation + rot, (!body ? tex.Size() : rec.Size()) / 2f, proj.scale,
+                Math.Abs(proj.rotation + rot) < Math.PI / 2f ? 0 : SpriteEffects.FlipVertically, 0);
+            // 瞧见这里的rotation没，所以在SetPosAndDmg函数里又写了一次设置rotation，这可是很重要的
         }
     }
 }

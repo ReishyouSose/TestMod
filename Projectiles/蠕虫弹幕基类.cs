@@ -4,7 +4,6 @@ namespace TestMod.Projectiles
 {
     public abstract class 蠕虫弹幕基类 : ModProjectile
     {
-        public Player Player => Main.player[Projectile.owner];
         public override void SetDefaults()
         {
             Projectile.width = Projectile.height = 32;
@@ -16,15 +15,14 @@ namespace TestMod.Projectiles
             Projectile.penetrate = -1;
             Projectile.usesLocalNPCImmunity = true;
             Projectile.localNPCHitCooldown = 10;
-            Projectile.alpha = 0;
+            Projectile.alpha = 255;
         }
-        public virtual int Amount => 2;
-        public virtual float Offset => 1f;
-        public virtual bool ModPlayerMinionBool { get; set; }
-
+        public Player Player => Main.player[Projectile.owner];
         public int itemDamage = 0;
-        public List<int> list = new();
-        public List<(Vector2 pos, float rot)> data = new();
+        public virtual float Offset => 1f;
+        public abstract bool ModPlayerMinionBool { get; set; }
+        public List<int> proj = new();// 弹幕list
+        public List<(Vector2 pos, float rot)> data = new();// 数据list
         public virtual double ModifyDamageMult(int count)
         {
             return count * Math.Pow(0.9f, count - 1 > 5 ? 5 : count - 1);
@@ -46,47 +44,51 @@ namespace TestMod.Projectiles
             {
                 Projectile.timeLeft = 2;
             }
+            Player.AddBuff((int)Projectile.ai[0], 2);
         }
         public override void AI()
         {
+            // 基础AI
             BaseAI();
-            Player.AddBuff((int)Projectile.ai[0], 2);
+            // 行动AI
             ActionLogic(Projectile, Player);
-            Projectile.originalDamage = (int)(ModifyDamageMult(list.Count - 1) *
-                Player.GetDamage(DamageClass.Summon).ApplyTo(itemDamage));
-            for (int i = 0; i < list.Count; i++)
+            // 维护弹幕列表和数据列表，在其内有弹幕死亡（召唤栏突然减少）时剔除元素
+            for (int i = 0; i < proj.Count; i++)
             {
-                if (!Main.projectile[list[i]].active)
+                if (!Main.projectile[proj[i]].active)
                 {
-                    list.RemoveAt(i);
-                    data.RemoveAt(i);
+                    proj.RemoveAt(i);
+                    data.RemoveAt(i + 1);
                     i--;
                 }
             }
+            // 设置伤害
+            Projectile.originalDamage = (int)(ModifyDamageMult(proj.Count - 1) *
+                Player.GetDamage(DamageClass.Summon).ApplyTo(itemDamage));
+            // 更新数据[0]，是逻辑弹幕的中心与角度
             data[0] = (Projectile.Center, Projectile.rotation);
-            SetProjPosAndRot(list[0], data[0]);
-            for (int i = 1; i <= list.Count; i++)
+            // 设置头体节的数据
+            SetProjSection(proj[0], data[0], Projectile.originalDamage);
+            // 重新计算data中的位置与角度，proj未计入尾体节，但data有，所以这里是<=
+            for (int i = 1; i <= proj.Count; i++)
             {
+                // 设置身体节的数据
                 data[i] = CalculatePosAndRot(data[i - 1], data[i], Projectile.width * Projectile.scale * Offset);
-                if (i < list.Count)
+                if (i < proj.Count)// proj中没有尾，是<
                 {
-                    SetProjPosAndRot(list[i], data[i]);
+                    // 设置身体节的数据
+                    SetProjSection(proj[i], data[i], Projectile.originalDamage);
                 }
             }
-            SetProjPosAndRot((int)Projectile.ai[1], data[list.Count]);
-        }
-        public override void Kill(int timeLeft)
-        {
-            for (int i = 0; i < list.Count; i++)
-            {
-                Main.projectile[list[i]].Kill();
-            }
-            Main.projectile[(int)Projectile.ai[1]].Kill();
+            Main.NewText(Vector2.Normalize(Vector2.Zero));
+            // 设置尾体节的数据
+            SetProjSection((int)Projectile.ai[1], data[proj.Count], Projectile.originalDamage);
+            Projectile tail = Main.projectile[(int)Projectile.ai[1]];
         }
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
             bool intersects = false;
-            for (int i = 0; i <= list.Count; i++)
+            for (int i = 0; i <= proj.Count; i++)
             {
                 if (targetHitbox.Intersects(RecCenter(data[i].pos, projHitbox.Width)))
                 {
@@ -95,29 +97,14 @@ namespace TestMod.Projectiles
                 }
             }
             return intersects;
-        }/*
-        public void DrawSet(SpriteBatch spb, int SummonNum, Color lightColor, float rot)
+        }
+        /*public override bool PreDraw(ref Color lightColor)
         {
-            Texture2D tex = TextureAssets.Projectile[Type].Value;
-            bool body = false;
-            Rectangle rec = new();
-            if (Type == Body)
-            {
-                body = true;
-                rec = new Rectangle(0, (int)Projectile.ai[1] * tex.Height / SummonNum, tex.Width, tex.Height / SummonNum);
-            }
-            spb.Draw(tex, Projectile.Center - Main.screenPosition, !body ? null : rec, lightColor,
-                Projectile.rotation + rot, (!body ? tex.Size() : rec.Size()) / 2f, Projectile.scale,
-                Math.Abs(Projectile.rotation + rot) < Math.PI / 2f ? 0 : SpriteEffects.FlipVertically, 0);
-            // 瞧见这里的rotation没，所以在SetPosAndDmg函数里又写了一次设置rotation，这可是很重要的
-        }*/
-        public override bool PreDraw(ref Color lightColor)
-        {
-            for (int i = 0; i < list.Count; i++)
+            for (int i = 0; i < proj.Count; i++)
             {
                 Utils.DrawLine(Main.spriteBatch, data[i].pos, data[i + 1].pos, Color.White);
             }
             return false;
-        }
+        }*/
     }
 }

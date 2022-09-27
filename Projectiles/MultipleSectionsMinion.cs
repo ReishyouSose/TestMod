@@ -8,15 +8,6 @@ namespace TestMod.Projectiles
 {
     public abstract class MultipleSectionsMinion : ModProjectile
     {
-        public static int SpawnMinion(Player player, IEntitySource source, int type, int damage, float kb, float ai0 = 0, float ai1 = 0, float minionSlots = 0)
-        {
-            int proj = player.SpawnMinionOnCursor(source, player.whoAmI, type, damage, kb);
-            Main.projectile[proj].ai[0] = ai0;
-            Main.projectile[proj].ai[1] = ai1;
-            Main.projectile[proj].minionSlots = minionSlots;
-            Main.projectile[proj].netUpdate = true;// 召唤时同步数据
-            return proj;
-        }
         //用于召唤的设置
        /* public static void SummonSet(Player player, IEntitySource source, int damage, float knockback, int SummonNum, int SummonBuffType, int Logic, int Head, int Body, int Tail)
         {

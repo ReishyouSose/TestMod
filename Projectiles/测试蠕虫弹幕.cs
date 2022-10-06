@@ -48,5 +48,13 @@ namespace TestMod.Projectiles
         {
             return false;
         }
+        public override void AI()
+        {
+            if (Projectile.ai[1] == 1)
+            {
+                Projectile.netUpdate = true;
+                Projectile.ai[1] = 0;
+            }
+        }
     }
 }

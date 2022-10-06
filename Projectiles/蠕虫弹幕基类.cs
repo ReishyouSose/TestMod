@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using System.IO;
+using static TestMod.NPCs.经典AI;
 
 namespace TestMod.Projectiles
 {
@@ -18,7 +20,9 @@ namespace TestMod.Projectiles
             Projectile.alpha = 255;
         }
         public Player Player => Main.player[Projectile.owner];
-        public int itemDamage = 0;
+        public int itemDamage;
+        public int buffType;
+        public int tail;
         public virtual float Offset => 1f;
         public abstract bool ModPlayerMinionBool { get; set; }
         public List<int> proj = new();// 弹幕list
@@ -44,14 +48,15 @@ namespace TestMod.Projectiles
             {
                 Projectile.timeLeft = 2;
             }
-            Player.AddBuff((int)Projectile.ai[0], 2);
+            Player.AddBuff(buffType, 2);
         }
+        public virtual void ActionAI() { StarDustDragonAI(Projectile, Player); }
         public override void AI()
         {
             // 基础AI
             BaseAI();
             // 行动AI
-            ActionLogic(Projectile, Player);
+            ActionAI();
             // 维护弹幕列表和数据列表，在其内有弹幕死亡（召唤栏突然减少）时剔除元素
             for (int i = 0; i < proj.Count; i++)
             {
@@ -60,15 +65,24 @@ namespace TestMod.Projectiles
                     proj.RemoveAt(i);
                     data.RemoveAt(i + 1);
                     i--;
+                    Projectile.ai[0] = 1;
                 }
+            }
+            if (Projectile.ai[0] == 1)
+            {
+                Projectile.netUpdate = true;
+                Projectile.ai[0] = 0;
             }
             // 设置伤害
             Projectile.originalDamage = (int)(ModifyDamageMult(proj.Count - 1) *
                 Player.GetDamage(DamageClass.Summon).ApplyTo(itemDamage));
             // 更新数据[0]，是逻辑弹幕的中心与角度
             data[0] = (Projectile.Center, Projectile.rotation);
+            int dir = Projectile.direction;
+            Projectile.direction = Projectile.spriteDirection = Projectile.velocity.X > 0 ? 1 : -1;
+
             // 设置头体节的数据
-            SetProjSection(proj[0], data[0], Projectile.originalDamage);
+            SetProjSection(proj[0], data[0], Projectile.spriteDirection, Projectile.originalDamage);
             // 重新计算data中的位置与角度，proj未计入尾体节，但data有，所以这里是<=
             for (int i = 1; i <= proj.Count; i++)
             {
@@ -77,13 +91,19 @@ namespace TestMod.Projectiles
                 if (i < proj.Count)// proj中没有尾，是<
                 {
                     // 设置身体节的数据
-                    SetProjSection(proj[i], data[i], Projectile.originalDamage);
+                    SetProjSection(proj[i], data[i], Projectile.spriteDirection, Projectile.originalDamage);
                 }
             }
-            Main.NewText(Vector2.Normalize(Vector2.Zero));
             // 设置尾体节的数据
-            SetProjSection((int)Projectile.ai[1], data[proj.Count], Projectile.originalDamage);
-            Projectile tail = Main.projectile[(int)Projectile.ai[1]];
+            SetProjSection(tail, data[proj.Count], Projectile.spriteDirection, Projectile.originalDamage);
+            if (dir != Projectile.direction)
+            {
+                for (int i = 0; i < proj.Count; i++)
+                {
+                    NetMessage.SendData(MessageID.SyncProjectile, -1, Player.whoAmI, null, proj[i]);
+                }
+                NetMessage.SendData(MessageID.SyncProjectile, -1, Player.whoAmI, null, tail);
+            }
         }
         public override bool? Colliding(Rectangle projHitbox, Rectangle targetHitbox)
         {
@@ -97,6 +117,39 @@ namespace TestMod.Projectiles
                 }
             }
             return intersects;
+        }
+        public override void SendExtraAI(BinaryWriter writer)
+        {
+            writer.Write(proj.Count);
+            for (int i = 0; i < proj.Count; i++)
+            {
+                writer.Write(proj[i]);
+            }
+            writer.Write(tail);
+            writer.Write(data.Count);
+            for (int i = 0; i < data.Count; i++)
+            {
+                writer.WriteVector2(data[i].pos);
+                writer.Write(data[i].rot);
+            }
+        }
+        public override void ReceiveExtraAI(BinaryReader reader)
+        {
+            List<int> newproj = new();
+            List<(Vector2 pos, float rot)> newdata = new();
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                newproj.Add(reader.ReadInt32());
+            }
+            proj = newproj;
+            tail = reader.ReadInt32();
+            count = reader.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                newdata.Add((reader.ReadVector2(), reader.ReadSingle()));
+            }
+            data = newdata;
         }
         /*public override bool PreDraw(ref Color lightColor)
         {

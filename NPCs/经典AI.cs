@@ -5,7 +5,112 @@ namespace TestMod.NPCs
 {
     public class 经典AI
     {
-        public static void 千足蜈蚣AI(NPC NPC)
+        public static void StarDustDragonAI(Projectile Projectile, Player Player, float MaxDisToPlayer = 2000, float SearchDis = 700, float MaxSpeed_NoTarget = 15f, float MaxSpeed_HasTarget = 30f)
+        {
+            // 弹幕超出玩家2000f自动回归，并同步数据
+            if (Vector2.Distance(Player.Center, Projectile.Center) > MaxDisToPlayer)
+            {
+                Projectile.Center = Player.Center;
+                Projectile.netUpdate = true;
+            }
+            int TarWho = -1;// 目标whoAmI
+            NPC target = Projectile.OwnerMinionAttackTargetNPC;// 召唤物自动索敌
+            if (target != null && target.CanBeChasedBy())
+            {
+                // 虽然但是，为什么要用 两倍 索敌距离
+                if (Projectile.Distance(target.Center) < SearchDis * 2f)
+                {
+                    TarWho = target.whoAmI;
+                }
+            }
+            // 如果自动索敌没有找到目标，就搜索离玩家1000f内且在弹幕索敌距离内的目标
+            if (TarWho < 0)
+            {
+                foreach (NPC npc in Main.npc)
+                {
+                    if (npc.CanBeChasedBy() && Player.Distance(npc.Center) < 1000f)
+                    {
+                        if (Projectile.Distance(npc.Center) < SearchDis)
+                        {
+                            TarWho = npc.whoAmI;
+                        }
+                    }
+                }
+            }
+            if (TarWho != -1)// 有攻击目标
+            {
+                NPC npc = Main.npc[TarWho];
+                Vector2 tarVel = npc.Center - Projectile.Center;
+                float speed = 0.4f;// 追击速度系数
+                float dis = tarVel.Length();
+                // 越近越快
+                if (dis < 600f)
+                {
+                    speed = 0.6f;
+                }
+                if (dis < 300f)
+                {
+                    speed = 0.8f;
+                }
+                // 到npc的距离比npc的碰撞箱大小的0.75倍大，也就是说离NPC还比较远
+                if (dis > npc.Size.Length() * 0.75f || Projectile.velocity == Vector2.Zero)
+                {
+                    Projectile.velocity += Vector2.Normalize(tarVel) * speed * 1.5f;
+                    //如果追踪方向和速度方向夹角过大，减速
+                    if (Vector2.Dot(Projectile.velocity, tarVel) < 0.25f)
+                    {
+                        Projectile.velocity *= 0.8f;
+                    }
+                }
+                // 限制最大速度
+                if (Projectile.velocity.Length() > MaxSpeed_HasTarget)
+                {
+                    Projectile.velocity = Vector2.Normalize(Projectile.velocity) * MaxSpeed_HasTarget;
+                }
+            }
+            else// 无攻击目标
+            {
+                float speed = 0.2f;// 游荡速度系数
+                float dis = Player.Center.Distance(Projectile.Center);// 弹幕到玩家距离
+                                                                      // 越近越慢
+                if (dis < 200f)
+                {
+                    speed = 0.12f;
+                }
+                if (dis < 140f)
+                {
+                    speed = 0.06f;
+                }
+                if (dis > 100f)
+                {
+                    // abs绝对值，sign正负
+                    if (Math.Abs(Player.Center.X - Projectile.Center.X) > 20f)
+                    {
+                        Projectile.velocity.X += speed * Math.Sign(Player.Center.X - Projectile.Center.X);
+                    }
+                    if (Math.Abs(Player.Center.Y - Projectile.Center.Y) > 10f)
+                    {
+                        Projectile.velocity.Y += speed * Math.Sign(Player.Center.Y - Projectile.Center.Y);
+                    }
+                }
+                else if (Projectile.velocity.Length() > 2f)
+                {
+                    Projectile.velocity *= 0.96f;
+                }
+                if (Math.Abs(Projectile.velocity.Y) < 1f)
+                {
+                    Projectile.velocity.Y -= 0.1f;
+                }
+                //无目标最大速度15f,有目标30f
+                if (Projectile.velocity.Length() > MaxSpeed_NoTarget)
+                {
+                    Projectile.velocity = Vector2.Normalize(Projectile.velocity) * MaxSpeed_NoTarget;
+                }
+            }
+            Projectile.rotation = Projectile.velocity.ToRotation();
+        }
+
+        public static void 千足蜈蚣AI(NPC NPC, int Head, int Body, int Tail)
         {
             bool flag = false;
             float num56 = 0.2f;
@@ -25,28 +130,28 @@ namespace TestMod.NPCs
 
             if (Main.netMode != NetmodeID.MultiplayerClient)
             {
-                if (NPC.type == 412 && NPC.ai[0] == 0f)
+                if (NPC.ai[0] == 0f)
                 {
                     NPC.ai[3] = NPC.whoAmI;
                     NPC.realLife = NPC.whoAmI;
-                    int num20 = 0;
-                    int num21 = NPC.whoAmI;
+                    int WhoAmI = NPC.whoAmI;
                     int num22 = 30;
-                    for (int num24 = 0; num24 < num22; num24++)
+                    for (int i = 0; i < num22; i++)
                     {
-                        int num25 = 413;
-                        if (num24 == num22 - 1)
+                        int type = 413;
+                        if (i == num22 - 1)
                         {
-                            num25 = 414;
+                            type = 414;
                         }
-                        num20 = NPC.NewNPC(NPC.GetSource_FromAI(), (int)(NPC.position.X + (float)(NPC.width / 2)), (int)(NPC.position.Y + (float)NPC.height), num25, NPC.whoAmI);
-                        Main.npc[num20].ai[3] = NPC.whoAmI;
-                        Main.npc[num20].realLife = NPC.whoAmI;
-                        Main.npc[num20].ai[1] = num21;
-                        Main.npc[num20].CopyInteractions(NPC);
-                        Main.npc[num21].ai[0] = num20;
-                        NetMessage.SendData(23, -1, -1, null, num20);
-                        num21 = num20;
+                        int section = NPC.NewNPC(NPC.GetSource_FromAI(), (int)(NPC.position.X + (NPC.width / 2)),
+                            (int)(NPC.position.Y + NPC.height), type, NPC.whoAmI);
+                        Main.npc[section].ai[3] = NPC.whoAmI;
+                        Main.npc[section].realLife = NPC.whoAmI;
+                        Main.npc[section].ai[1] = WhoAmI;
+                        Main.npc[section].CopyInteractions(NPC);
+                        Main.npc[WhoAmI].ai[0] = section;
+                        NetMessage.SendData(MessageID.SyncNPC, -1, -1, null, section);
+                        WhoAmI = section;
                     }
                 }
             }
@@ -66,27 +171,7 @@ namespace TestMod.NPCs
                         NetMessage.SendData(28, -1, -1, null, NPC.whoAmI, -1f);
                     }
                 }
-            }
-            int num30 = (int)(NPC.position.X / 16f) - 1;
-            int num31 = (int)((NPC.position.X + (float)NPC.width) / 16f) + 2;
-            int num32 = (int)(NPC.position.Y / 16f) - 1;
-            int num33 = (int)((NPC.position.Y + (float)NPC.height) / 16f) + 2;
-            if (num30 < 0)
-            {
-                num30 = 0;
-            }
-            if (num31 > Main.maxTilesX)
-            {
-                num31 = Main.maxTilesX;
-            }
-            if (num32 < 0)
-            {
-                num32 = 0;
-            }
-            if (num33 > Main.maxTilesY)
-            {
-                num33 = Main.maxTilesY;
-            }
+            }// 看不懂
             if (NPC.type == 414)
             {
                 if (NPC.justHit)
@@ -129,10 +214,10 @@ namespace TestMod.NPCs
                 obj2.fadeIn = 1f;
                 obj2.velocity = Vector2.Zero;
                 NPC.position -= NPC.netOffset;
-            }
+            }// 这里面在生成粒子
             float num39 = 8f;
             float num40 = 0.07f;
-            Vector2 vector2 = new(NPC.position.X + (float)NPC.width * 0.5f, NPC.position.Y + (float)NPC.height * 0.5f);
+            Vector2 vector2 = new(NPC.position.X + NPC.width * 0.5f, NPC.position.Y + (float)NPC.height * 0.5f);
             float num42 = Main.player[NPC.target].position.X + (float)(Main.player[NPC.target].width / 2);
             float num43 = Main.player[NPC.target].position.Y + (float)(Main.player[NPC.target].height / 2);
 
@@ -195,11 +280,11 @@ namespace TestMod.NPCs
                 }
                 if (num44 > 0)
                 {
-                    for (int num54 = 0; num54 < 200; num54++)
+                    for (int i = 0; i < 200; i++)
                     {
-                        if (Main.npc[num54].active && Main.npc[num54].type == NPC.type && num54 != NPC.whoAmI)
+                        if (Main.npc[i].active && Main.npc[i].type == NPC.type && i != NPC.whoAmI)
                         {
-                            Vector2 vector3 = Main.npc[num54].Center - NPC.Center;
+                            Vector2 vector3 = Main.npc[i].Center - NPC.Center;
                             if (vector3.Length() < 400f)
                             {
                                 vector3.Normalize();
@@ -250,33 +335,9 @@ namespace TestMod.NPCs
                 NPC.rotation = (float)Math.Atan2(num43, num42) + 1.57f;
                 num57 = (float)Math.Sqrt(num42 * num42 + num43 * num43);
                 int num58 = NPC.width;
-                if (NPC.type >= 87 && NPC.type <= 92)
-                {
-                    num58 = 42;
-                }
-                if (NPC.type >= 454 && NPC.type <= 459)
-                {
-                    num58 = 36;
-                }
-                if (NPC.type >= 13 && NPC.type <= 15)
-                {
-                    num58 = (int)((float)num58 * NPC.scale);
-                }
-                if (NPC.type >= 513 && NPC.type <= 515)
-                {
-                    num58 -= 6;
-                }
                 if (NPC.type >= 412 && NPC.type <= 414)
                 {
                     num58 += 6;
-                }
-                if (NPC.type >= 621 && NPC.type <= 623)
-                {
-                    num58 = 24;
-                }
-                if (Main.getGoodWorld && NPC.type >= 13 && NPC.type <= 15)
-                {
-                    num58 = 62;
                 }
                 num57 = (num57 - (float)num58) / num57;
                 num42 *= num57;
@@ -284,39 +345,6 @@ namespace TestMod.NPCs
                 NPC.velocity = Vector2.Zero;
                 NPC.position.X += num42;
                 NPC.position.Y += num43;
-                if (NPC.type >= 87 && NPC.type <= 92)
-                {
-                    if (num42 < 0f)
-                    {
-                        NPC.spriteDirection = 1;
-                    }
-                    else if (num42 > 0f)
-                    {
-                        NPC.spriteDirection = -1;
-                    }
-                }
-                if (NPC.type >= 454 && NPC.type <= 459)
-                {
-                    if (num42 < 0f)
-                    {
-                        NPC.spriteDirection = 1;
-                    }
-                    else if (num42 > 0f)
-                    {
-                        NPC.spriteDirection = -1;
-                    }
-                }
-                if (NPC.type >= 621 && NPC.type <= 623)
-                {
-                    if (num42 < 0f)
-                    {
-                        NPC.spriteDirection = 1;
-                    }
-                    else if (num42 > 0f)
-                    {
-                        NPC.spriteDirection = -1;
-                    }
-                }
             }
             else
             {

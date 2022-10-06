@@ -34,7 +34,7 @@ namespace TestMod.Items
         }
         public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
-            SummonSet<逻辑>(player, source, damage, knockback, 2, ModContent.BuffType<TestMinionBuff>(), Item.damage, ModContent.ProjectileType<逻辑>(),
+            BaseLogicProj.SummonSet<逻辑>(player, source, damage, knockback, 2, ModContent.BuffType<TestMinionBuff>(), ModContent.ProjectileType<逻辑>(),
                  ModContent.ProjectileType<头>(), ModContent.ProjectileType<身>(), ModContent.ProjectileType<尾>());
             return false;
         }

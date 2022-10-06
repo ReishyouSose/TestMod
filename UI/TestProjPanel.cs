@@ -40,7 +40,7 @@ namespace TestMod.UI
             base.Update(gameTime);
             foreach (Projectile logic in Main.projectile)
             {
-                if (logic.active && logic.ModProjectile is 蠕虫弹幕基类 proj)
+                if (logic.active && logic.ModProjectile is BaseLogicProj proj)
                 {
                     text.SetText(string.Join("\n", proj.proj));
                     List<Vector2> v2 = new();

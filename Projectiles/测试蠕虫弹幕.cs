@@ -2,7 +2,7 @@
 
 namespace TestMod.Projectiles
 {
-    public class 逻辑 : 蠕虫弹幕基类
+    public class 逻辑 : BaseLogicProj
     {
         public override string Texture => "TestMod/Pictures/Projectiles/头";
         public override float Offset => 0.45f;
@@ -41,7 +41,7 @@ namespace TestMod.Projectiles
         public class 尾 : 基本召唤物 { public override string Texture => "TestMod/Pictures/Projectiles/尾"; }
         public override bool PreDraw(ref Color lightColor)
         {
-            DrawSet(Main.spriteBatch, Projectile, ModContent.ProjectileType<身>(), 2, lightColor, 0);
+            BaseLogicProj.DrawSet(Main.spriteBatch, Projectile, ModContent.ProjectileType<身>(), 2, lightColor, 0);
             return false;
         }
         public override bool? CanDamage()

@@ -1,5 +1,4 @@
 ﻿using TestMod.ModPlayers;
-using static TestMod.Projectiles.蠕虫弹幕基类;
 
 namespace TestMod.Buffs
 {

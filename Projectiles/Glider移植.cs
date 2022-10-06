@@ -155,13 +155,16 @@ namespace TestMod.Projectiles
                 }
                 TargetLocation = Vector2.Zero;
             }
-
-
-            // 召唤物弹幕的后续处理，轨迹，限制等
-            if (Projectile.velocity.Length() > 16)
+            else if (State == 2)
             {
-                Projectile.velocity *= 0.98f;
+
             }
+
+                // 召唤物弹幕的后续处理，轨迹，限制等
+                if (Projectile.velocity.Length() > 16)
+                {
+                    Projectile.velocity *= 0.98f;
+                }
             if (Math.Abs(Projectile.velocity.X) < 0.01f || Math.Abs(Projectile.velocity.Y) < 0.01f)
             {
                 Projectile.velocity = Main.rand.NextVector2Circular(1, 1) * 2f;

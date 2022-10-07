@@ -3,27 +3,35 @@ using System.Linq;
 
 namespace TestMod.Projectiles
 {
-
     public class GliderPro : ModProjectile
     {
+        public enum ProjectileState
+        {
+            MoveAroundPlayer,
+            Shoot,
+        };
+
+
         private float Timer
         {
             get { return Projectile.ai[0]; }
             set { Projectile.ai[0] = value; }
         }
 
-        private float State
+        public ProjectileState State
         {
-            get { return Projectile.ai[1]; }
-            set { Projectile.ai[1] = value; }
+            get { return (ProjectileState)(int)Projectile.ai[1]; }
+            set { Projectile.ai[1] = (int)value; }
         }
+
+
         public Vector2 TargetLocation = new Vector2();
 
         private static float _nearPlayerSpeed = 0.1f;
 
         public override void SetStaticDefaults()
         {
-            DisplayName.SetDefault("僚机");
+            DisplayName.SetDefault("Glider");
         }
         public override void SetDefaults()
         {
@@ -91,95 +99,135 @@ namespace TestMod.Projectiles
                 Projectile.timeLeft = 2;
             }
             player.AddBuff(ModContent.BuffType<GliderBuff>(), 2);// 把之前说的添加buff放在这里
-            // 弹幕的姿态调整
-            Projectile.direction = (Projectile.spriteDirection = -Math.Sign(Projectile.velocity.X));
-            Projectile.rotation = (float)Math.Atan2(Projectile.velocity.Y, Projectile.velocity.X) + 1.57f;
-            Projectile.netUpdate = true;
-            NPC npc = FindCloestEnemy(Projectile.Center, 1200f, (n) =>
-            {
-                return n.CanBeChasedBy() &&
-                !n.dontTakeDamage && Collision.CanHitLine(Projectile.Center, 1, 1, n.Center, 1, 1);
-            });
-            if (TargetLocation == Vector2.Zero && npc != null && Vector2.Distance(Projectile.Center, player.Center) < 700)
-            {
-                TargetLocation = npc.Center;
-            }
-            // 如果鼠标没有控制而且周围没有敌人
-            if (npc == null && TargetLocation == Vector2.Zero)
-            {
-                State = 0;
-                Timer = 0;
-            }
 
-            if (State == 0)
+            if (Main.myPlayer == Projectile.owner)
             {
-                MoveAroundPlayer(player);
-                if (npc != null || TargetLocation != Vector2.Zero) { State = 1; }
-            }
-            else if (State == 1)
-            {
-                Timer++;
-                if (player.controlUseTile && Main.myPlayer == Projectile.owner)
+                // 这段在客户端执行，需要发给服务器端来同步给其他客户端
+                if (Main.mouseRight)
                 {
                     TargetLocation = Main.MouseWorld;
                     Projectile.netUpdate = true;
                 }
-                Vector2 diff = TargetLocation - Projectile.Center;
-                float distance = diff.Length();
-                diff.Normalize();
-                Projectile.rotation = diff.ToRotation() + 1.57f;
-                // 射击
-                if (Timer % 30 < 1)
+                if (TargetLocation != Vector2.Zero && Main.mouseRightRelease)
                 {
-                    Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(), 
-                        Projectile.Center + Projectile.velocity + diff * 30, diff * 3f, 
-                        /*ModContent.ProjectileType<BlazeBallSmall>()*/ProjectileID.TerraBeam,
-                        Projectile.damage + 5, Projectile.knockBack, Projectile.owner);
+                    TargetLocation = Vector2.Zero;
+                    Projectile.netUpdate = true;
                 }
-                if (distance > 500)
+            }
+
+            ProjectileState prevState = State;
+
+            NPC tar = null;
+            // 如果有强制瞄准位置，就进入射击状态
+            if (TargetLocation != Vector2.Zero)
+            {
+                State = ProjectileState.Shoot;
+            }
+            else
+            {
+                NPC npc = FindCloestEnemy(Projectile.Center, 1200f, (n) =>
                 {
-                    Projectile.velocity = (Projectile.velocity * 20f + diff * 5) / 21f;
+                    return n.CanBeChasedBy() &&
+                    !n.dontTakeDamage && Collision.CanHitLine(Projectile.Center, 1, 1, n.Center, 1, 1);
+                });
+                if (Vector2.Distance(Projectile.Center, player.Center) < 700)
+                {
+                    tar = npc;
+                }
+                // 如果能找到NPC也进入射击状态
+                if (tar != null)
+                {
+                    State = ProjectileState.Shoot;
                 }
                 else
                 {
-                    Projectile.velocity *= 0.97f;
+                    // 如果鼠标没有控制而且周围没有敌人，那么是返回移动至玩家状态
+                    State = ProjectileState.MoveAroundPlayer;
                 }
-                // 让召唤物不至于靠的太近
-                if (distance > 200)
-                {
-                    Projectile.velocity = (Projectile.velocity * 40f + diff * 5) / 41f;
-                }
-                else if (distance < 180)
-                {
-                    Projectile.velocity = (Projectile.velocity * 20f + diff * -4) / 21f;
-                }
-                TargetLocation = Vector2.Zero;
             }
-            else if (State == 2)
+
+            if (prevState != State)
             {
-
+                Timer = 0;
+                Projectile.netUpdate = true;
             }
 
-                // 召唤物弹幕的后续处理，轨迹，限制等
-                if (Projectile.velocity.Length() > 16)
-                {
-                    Projectile.velocity *= 0.98f;
-                }
+            switch (State)
+            {
+                case ProjectileState.MoveAroundPlayer:
+                    {
+                        MoveAroundPlayer(player);
+                        break;
+                    }
+                case ProjectileState.Shoot:
+                    {
+                        var targetPosition = (TargetLocation == Vector2.Zero) ? tar.Center : TargetLocation;
+                        // 射击
+                        ShootAround(targetPosition - Projectile.Center);
+                        break;
+                    }
+            }
+
+            // 召唤物弹幕的后续处理，轨迹，限制等
+            if (Projectile.velocity.Length() > 16)
+            {
+                Projectile.velocity *= 0.98f;
+            }
             if (Math.Abs(Projectile.velocity.X) < 0.01f || Math.Abs(Projectile.velocity.Y) < 0.01f)
             {
                 Projectile.velocity = Main.rand.NextVector2Circular(1, 1) * 2f;
+                Projectile.netUpdate = true;
             }
-
+            Projectile.rotation = Projectile.velocity.ToRotation();
             if (Projectile.velocity.Length() > 6)
             {
                 Dust dust = Dust.NewDustDirect(Projectile.position, Projectile.width, Projectile.height,
-                    MyDustId.OrangeFire, -Projectile.velocity.X, -Projectile.velocity.Y, 100, Color.Red, 1.0f);
+                    DustID.Torch, -Projectile.velocity.X, -Projectile.velocity.Y, 100, Color.Red, 1.0f);
                 dust.noGravity = true;
                 dust.position = Projectile.Center - Projectile.velocity;
             }
 
         }
+        public override bool PreDraw(ref Color lightColor)
+        {
+            var tex = TextureAssets.Projectile[Type].Value;
+            var rot = Projectile.rotation + (float)Math.PI / 2f;
+            Main.spriteBatch.Draw(tex, Projectile.Center - Main.screenPosition, null, Color.White, rot,
+                tex.Size() / 2f, Projectile.scale, 0, 0);
+            return false;
+        }
+        public void ShootAround(Vector2 diff)
+        {
+            Timer++;
 
+            float distance = diff.Length();
+            diff.Normalize();
+            Projectile.rotation = diff.ToRotation();
+            if (Timer % 30 < 1)
+            {
+                Projectile.NewProjectileDirect(Projectile.GetSource_FromAI(),
+                    Projectile.Center + Projectile.velocity + diff * 30, diff * 13f,
+                    /*ModContent.ProjectileType<BlazeBallSmall>()*/ProjectileID.GreenLaser,
+                    Projectile.damage + 5, Projectile.knockBack, Projectile.owner);
+            }
+            if (distance > 500)
+            {
+                Projectile.velocity = (Projectile.velocity * 20f + diff * 5) / 21f;
+            }
+            else
+            {
+                Projectile.velocity *= 0.97f;
+            }
+            // 让召唤物不至于靠的太近
+            if (distance > 200)
+            {
+                Projectile.velocity = (Projectile.velocity * 40f + diff * 5) / 41f;
+            }
+            else if (distance < 180)
+            {
+                Projectile.velocity = (Projectile.velocity * 20f + diff * -4) / 21f;
+            }
+        }
         /// <summary>
         /// 让召唤物绕着玩家运动
         /// </summary>
@@ -211,10 +259,12 @@ namespace TestMod.Projectiles
         public override void SendExtraAI(BinaryWriter writer)
         {
             writer.WriteVector2(TargetLocation);
+            writer.Write(Projectile.localAI[0]);
         }
         public override void ReceiveExtraAI(BinaryReader reader)
         {
             TargetLocation = reader.ReadVector2();
+            Projectile.localAI[0] = reader.ReadSingle();
         }
     }
     public class GliderPlayer : ModPlayer
@@ -263,7 +313,7 @@ namespace TestMod.Projectiles
         public override void SetStaticDefaults()
         {
             base.SetStaticDefaults();
-            DisplayName.SetDefault("僚机召唤杖");
+            DisplayName.SetDefault("Glider");
             Tooltip.SetDefault("产生可控制的僚机为你作战");
         }
         public override void SetDefaults()
@@ -290,18 +340,20 @@ namespace TestMod.Projectiles
             Item.shootSpeed = 10f;
 
         }
-        /*
+
         public override void HoldItem(Player player)
         {
-            if (player.whoAmI == Main.myPlayer && Main.mouseRight)
-            {
-                foreach (var proj in Main.projectile.Where(p => p.active && p.friendly && p.type == Item.shoot && p.owner == player.whoAmI))
-                {
-                    GliderPro pro = (GliderPro)proj.ModProjectile;
-                    pro.TargetLocation = Main.MouseWorld;
-                }
-            }
-        }*/
+            //if (player.whoAmI == Main.myPlayer && Main.mouseRight)
+            //{
+            //    foreach (var proj in Main.projectile.Where(p => p.active && p.friendly && p.type == Item.shoot && p.owner == player.whoAmI))
+            //    {
+            //        GliderPro pro = (GliderPro)proj.ModProjectile;
+            //        pro.TargetLocation = Main.MouseWorld;
+            //        pro.State = 2;
+            //        proj.netUpdate = true;
+            //    }
+            //}
+        }
         public override bool Shoot(Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback)
         {
             //if (player.ownedProjectileCounts[mod.ProjectileType("ExecutionerPro")] == 0)
@@ -330,22 +382,6 @@ namespace TestMod.Projectiles
             Recipe re = CreateRecipe();
             re.AddIngredient(ItemID.HallowedBar, 18);
             re.AddIngredient(ItemID.SoulofMight, 5);
-            re.AddIngredient(ItemID.SoulofLight, 15);
-            re.AddIngredient(ItemID.SoulofNight, 15);
-            re.AddTile(TileID.MythrilAnvil);
-            re.Register();
-
-            re = CreateRecipe();
-            re.AddIngredient(ItemID.HallowedBar, 18);
-            re.AddIngredient(ItemID.SoulofSight, 5);
-            re.AddIngredient(ItemID.SoulofLight, 15);
-            re.AddIngredient(ItemID.SoulofNight, 15);
-            re.AddTile(TileID.MythrilAnvil);
-            re.Register();
-
-            re = CreateRecipe();
-            re.AddIngredient(ItemID.HallowedBar, 18);
-            re.AddIngredient(ItemID.SoulofFright, 5);
             re.AddIngredient(ItemID.SoulofLight, 15);
             re.AddIngredient(ItemID.SoulofNight, 15);
             re.AddTile(TileID.MythrilAnvil);

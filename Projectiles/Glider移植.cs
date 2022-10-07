@@ -199,7 +199,6 @@ namespace TestMod.Projectiles
         public void ShootAround(Vector2 diff)
         {
             Timer++;
-
             float distance = diff.Length();
             diff.Normalize();
             Projectile.rotation = diff.ToRotation();
@@ -259,12 +258,10 @@ namespace TestMod.Projectiles
         public override void SendExtraAI(BinaryWriter writer)
         {
             writer.WriteVector2(TargetLocation);
-            writer.Write(Projectile.localAI[0]);
         }
         public override void ReceiveExtraAI(BinaryReader reader)
         {
             TargetLocation = reader.ReadVector2();
-            Projectile.localAI[0] = reader.ReadSingle();
         }
     }
     public class GliderPlayer : ModPlayer
